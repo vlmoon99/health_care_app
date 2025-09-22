@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Plus, Home, Settings, Trash2, Upload, X } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
 const supabaseUrl = 'https://nifdaoaxjihkwbgviwsa.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZmRhb2F4amloa3diZ3Zpd3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyMDU0MDAsImV4cCI6MjA3Mzc4MTQwMH0.pPPgJ8L_dfouSLrajPg1gxq3d8XLVTrbBp91LxB9e1Q';
 
@@ -63,35 +62,131 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
+
 // ---------------- Food Card ----------------
-const FoodIntakeCard = ({ foodIntake, onClick }) => {
+const FoodIntakeCard = ({ foodIntake, onClick, onDelete }) => {
+  const [imageUrl, setImageUrl] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // Load image from Supabase storage
+  useEffect(() => {
+    if (!foodIntake.food_image_id) return;
+    let isMounted = true;
+
+    const loadImage = async () => {
+      try {
+        const { data, error } = await supabase.storage
+          .from('user_photos')
+          .download(foodIntake.food_image_id);
+        if (error) throw error;
+        if (isMounted) setImageUrl(URL.createObjectURL(data));
+      } catch (error) {
+        console.error('Error downloading image:', error);
+      }
+    };
+
+    loadImage();
+    return () => {
+      isMounted = false;
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    };
+  }, [foodIntake.food_image_id]);
+
+  const handleConfirmDelete = () => {
+    onDelete(foodIntake.id);
+    setShowConfirm(false);
+  };
+
   return (
-    <div
-      onClick={onClick}
-      className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-102 border border-gray-100"
-    >
-      {foodIntake.imageUrl && (
-        <div className="h-48 bg-gray-100 rounded-t-2xl overflow-hidden">
-          <img
-            src={foodIntake.imageUrl}
-            alt="Food"
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          />
-        </div>
-      )}
-      <div className="p-4">
-        <p className="text-gray-800 font-medium mb-2 line-clamp-2">{foodIntake.description}</p>
-        <div className="flex items-center justify-between text-sm text-gray-500">
-          <span>{foodIntake.nutrients?.calories || 0} kcal</span>
-          <span>{new Date(foodIntake.created_at).toLocaleDateString()}</span>
+    <>
+      <div
+        onClick={() => onClick(foodIntake)}
+        className="relative bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-102 border border-gray-100"
+      >
+        {/* Trash button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}
+          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow-md z-10"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+
+        {imageUrl && (
+          <div className="h-48 bg-gray-100 rounded-t-2xl overflow-hidden">
+            <img
+              src={imageUrl}
+              alt="Food"
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+        )}
+
+        <div className="p-4">
+          <p className="text-gray-800 font-medium mb-2 line-clamp-2">{foodIntake.description}</p>
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <span>{foodIntake.nutrients?.calories || 0} kcal</span>
+            <span>{new Date(foodIntake.created_at).toLocaleDateString()}</span>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this food intake? This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-xl transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
 // ---------------- Nutrient Modal ----------------
 const NutrientModal = ({ foodIntake, onClose }) => {
+  const [imageUrl, setImageUrl] = useState(null);
+
+  useEffect(() => {
+    const loadImage = async () => {
+      if (foodIntake?.food_image_id) {
+        try {
+          const { data, error } = await supabase.storage
+            .from('user_photos')
+            .download(foodIntake.food_image_id);
+
+          if (error) throw error;
+
+          const url = URL.createObjectURL(data);
+          setImageUrl(url);
+
+          return () => URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('Error downloading image:', error);
+        }
+      }
+    };
+
+    loadImage();
+  }, [foodIntake?.food_image_id]);
+
+
   if (!foodIntake) return null;
 
   const nutrients = foodIntake.nutrients || {};
@@ -121,10 +216,10 @@ const NutrientModal = ({ foodIntake, onClose }) => {
         </div>
 
         <div className="p-4 overflow-y-auto max-h-[60vh]">
-          {foodIntake.imageUrl && (
+          {imageUrl && (
             <div className="mb-4 rounded-2xl overflow-hidden">
               <img
-                src={foodIntake.imageUrl}
+                src={imageUrl}
                 alt="Food"
                 className="w-full h-32 object-cover"
               />
@@ -151,7 +246,7 @@ const NutrientModal = ({ foodIntake, onClose }) => {
       </div>
     </div>
   );
-};
+}
 
 // ---------------- Add Food Modal ----------------
 const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
@@ -180,10 +275,16 @@ const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
 
       // Upload image if provided
       if (imageFile) {
-        const filePath = `${currentUser.id}/${Date.now()}-${imageFile.name}`;
+        const fileExtension = imageFile.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExtension}`;
+        const filePath = `${currentUser.id}/${fileName}`;
+
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('user_photos')
-          .upload(filePath, imageFile);
+          .upload(filePath, imageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) throw uploadError;
         imageId = uploadData.path;
@@ -320,20 +421,36 @@ const SettingsScreen = ({ onDeleteAll, onLogout, currentUser }) => {
 
   const handleDeleteAll = async () => {
     try {
+      // Get all food intakes to find associated images
+      const { data: foodIntakes } = await supabase
+        .from('food_intakes')
+        .select('food_image_id')
+        .eq('user_id', currentUser.id);
+
       // Delete all food intakes
       const { error } = await supabase.from('food_intakes').delete().eq('user_id', currentUser.id);
       if (error) throw error;
 
-      // Delete all images in user's folder
-      const { data: files, error: listError } = await supabase.storage.from('user_photos').list(currentUser.id);
-      if (!listError && files.length > 0) {
-        const fileNames = files.map((f) => `${currentUser.id}/${f.name}`);
-        await supabase.storage.from('user_photos').remove(fileNames);
+      // Delete associated images
+      if (foodIntakes && foodIntakes.length > 0) {
+        const imageIds = foodIntakes
+          .filter(intake => intake.food_image_id)
+          .map(intake => intake.food_image_id);
+
+        if (imageIds.length > 0) {
+          const { error: deleteError } = await supabase.storage
+            .from('user_photos')
+            .remove(imageIds);
+
+          if (deleteError) {
+            console.error('Error deleting images:', deleteError);
+          }
+        }
       }
 
       onDeleteAll();
-      onLogout();
       setShowConfirm(false);
+      alert('All data deleted successfully');
     } catch (error) {
       console.error('Error deleting data:', error);
       alert('Failed to delete data. Please try again.');
@@ -343,6 +460,19 @@ const SettingsScreen = ({ onDeleteAll, onLogout, currentUser }) => {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Settings</h1>
+
+      <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Account</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Anonymous User: {currentUser?.id?.substring(0, 8)}...
+        </p>
+        <button
+          onClick={onLogout}
+          className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-2xl transition-colors duration-300"
+        >
+          Logout
+        </button>
+      </div>
 
       <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Data Management</h2>
@@ -356,7 +486,7 @@ const SettingsScreen = ({ onDeleteAll, onLogout, currentUser }) => {
         </button>
 
         <p className="text-sm text-gray-500 mt-3 text-center">
-          This will permanently delete all your food intake data and log you out.
+          This will permanently delete all your food intake data and associated images.
         </p>
       </div>
 
@@ -395,6 +525,42 @@ const App = () => {
   const [foodIntakes, setFoodIntakes] = useState([]);
   const [selectedFoodIntake, setSelectedFoodIntake] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for existing session
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (session?.user) {
+          setCurrentUser(session.user);
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setCurrentUser(session.user);
+        } else {
+          setCurrentUser(null);
+          setFoodIntakes([]);
+        }
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (currentUser) {
@@ -421,14 +587,38 @@ const App = () => {
     setFoodIntakes([newFoodIntake, ...foodIntakes]);
   };
 
+  const handleDeleteIntake = async (id) => {
+    try {
+      await supabase.from('food_intakes').delete().eq('id', id);
+      setFoodIntakes(foodIntakes.filter(item => item.id !== id));
+    } catch (error) {
+      console.error('Error deleting intake:', error);
+    }
+  };
+
+
   const handleDeleteAll = () => {
     setFoodIntakes([]);
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setCurrentUser(null);
+      setActiveTab('home');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <LoginScreen onLogin={setCurrentUser} />;
@@ -444,6 +634,7 @@ const App = () => {
                 key={intake.id}
                 foodIntake={intake}
                 onClick={() => setSelectedFoodIntake(intake)}
+                onDelete={handleDeleteIntake}
               />
             ))}
           </div>
@@ -457,9 +648,8 @@ const App = () => {
         <div className="flex justify-around items-center h-16">
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center ${
-              activeTab === 'home' ? 'text-emerald-600' : 'text-gray-500'
-            }`}
+            className={`flex flex-col items-center ${activeTab === 'home' ? 'text-emerald-600' : 'text-gray-500'
+              }`}
           >
             <Home className="w-6 h-6" />
             <span className="text-xs">Home</span>
@@ -474,9 +664,8 @@ const App = () => {
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex flex-col items-center ${
-              activeTab === 'settings' ? 'text-emerald-600' : 'text-gray-500'
-            }`}
+            className={`flex flex-col items-center ${activeTab === 'settings' ? 'text-emerald-600' : 'text-gray-500'
+              }`}
           >
             <Settings className="w-6 h-6" />
             <span className="text-xs">Settings</span>
@@ -498,6 +687,7 @@ const App = () => {
           onClose={() => setSelectedFoodIntake(null)}
         />
       )}
+
     </div>
   );
 };
