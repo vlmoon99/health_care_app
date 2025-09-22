@@ -1,4 +1,3 @@
-
 create extension if not exists "uuid-ossp";
 
 create table public.food_intakes (
@@ -50,3 +49,5 @@ with check (
   (storage.foldername(name))[1] = auth.uid()::text
 );
 
+
+-- mock data
