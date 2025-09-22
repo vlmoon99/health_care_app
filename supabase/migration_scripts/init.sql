@@ -10,6 +10,8 @@ create table public.food_intakes (
     updated_at timestamptz not null default now()
 );
 
+insert into storage.buckets (id, name, public) values ('user_photos', 'user_photos', false);
+
 create or replace function public.set_updated_at()
 returns trigger as $$
 begin
@@ -48,6 +50,3 @@ using (
 with check (
   (storage.foldername(name))[1] = auth.uid()::text
 );
-
-
--- mock data

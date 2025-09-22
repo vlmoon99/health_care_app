@@ -15,4 +15,7 @@ drop function if exists public.set_updated_at();
 
 drop table if exists public.food_intakes;
 
+delete from storage.buckets where id = 'user_photos';
+
 drop extension if exists "uuid-ossp";
+
