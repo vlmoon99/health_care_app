@@ -7,11 +7,53 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ---------------- Libs ----------------
+
+
+// ---------------- NativeFeatures ----------------
+
+const NativeFeatures = {
+  vibrate(pattern = 100) {
+    if (this.canVibrate()) {
+      return navigator.vibrate(pattern);
+    }
+    console.warn("Vibration API not supported on this device.");
+    return false;
+  },
+
+  canVibrate() {
+    return "vibrate" in navigator;
+  },
+
+  isOnline() {
+    return navigator.onLine;
+  },
+
+  onOnlineStatusChange(callback) {
+    window.addEventListener("online", () => callback(true));
+    window.addEventListener("offline", () => callback(false));
+  },
+
+  async copyToClipboard(text) {
+    if (!("clipboard" in navigator)) {
+      console.warn("Clipboard API not supported.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error("Failed to copy text:", err);
+    }
+  }
+};
+
+
 // ---------------- Login Screen ----------------
 const LoginScreen = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
+    NativeFeatures.vibrate(15);
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInAnonymously();
@@ -62,13 +104,11 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-
 // ---------------- Food Card ----------------
 const FoodIntakeCard = ({ foodIntake, onClick, onDelete }) => {
   const [imageUrl, setImageUrl] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Load image from Supabase storage
   useEffect(() => {
     if (!foodIntake.food_image_id) return;
     let isMounted = true;
@@ -93,6 +133,8 @@ const FoodIntakeCard = ({ foodIntake, onClick, onDelete }) => {
   }, [foodIntake.food_image_id]);
 
   const handleConfirmDelete = () => {
+    NativeFeatures.vibrate(15);
+
     onDelete(foodIntake.id);
     setShowConfirm(false);
   };
@@ -100,12 +142,19 @@ const FoodIntakeCard = ({ foodIntake, onClick, onDelete }) => {
   return (
     <>
       <div
-        onClick={() => onClick(foodIntake)}
+        onClick={() => {
+          NativeFeatures.vibrate(15);
+          onClick(foodIntake);
+        }}
         className="relative bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-102 border border-gray-100"
       >
         {/* Trash button */}
         <button
-          onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}
+          onClick={(e) => {
+            NativeFeatures.vibrate(15);
+            e.stopPropagation();
+            setShowConfirm(true);
+          }}
           className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow-md z-10"
         >
           <Trash2 className="w-4 h-4" />
@@ -140,7 +189,10 @@ const FoodIntakeCard = ({ foodIntake, onClick, onDelete }) => {
             </p>
             <div className="flex space-x-3">
               <button
-                onClick={() => setShowConfirm(false)}
+                onClick={() => {
+                  NativeFeatures.vibrate(15);
+                  setShowConfirm(false);
+                }}
                 className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-xl transition-colors"
               >
                 Cancel
@@ -256,16 +308,46 @@ const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleImageUpload = (e) => {
+    NativeFeatures.vibrate(15);
     const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => setImage(e.target.result);
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Create a canvas of 256x256
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        // Draw the image into canvas (fit it into 256x256)
+        ctx.drawImage(img, 0, 0, 256, 256);
+
+        // Convert canvas to blob (compressed)
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return;
+            // Create a new File object to mimic original file
+            const compressedFile = new File([blob], file.name, { type: 'image/jpeg' });
+            setImageFile(compressedFile);
+
+            // Update preview
+            const previewUrl = URL.createObjectURL(blob);
+            setImage(previewUrl);
+          },
+          'image/jpeg',
+          0.7 // compression quality: 0.0 - 1.0 (lower = smaller size)
+        );
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async () => {
+    NativeFeatures.vibrate(15);
     if (!description.trim() && !imageFile) return;
 
     setIsProcessing(true);
@@ -273,7 +355,6 @@ const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
     try {
       let imageId = null;
 
-      // Upload image if provided
       if (imageFile) {
         const fileExtension = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExtension}`;
@@ -290,7 +371,6 @@ const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
         imageId = uploadData.path;
       }
 
-      // Analyze food using edge function
       const { data: analysisData, error: analysisError } = await supabase.functions
         .invoke('analyze_food', {
           body: {
@@ -301,7 +381,6 @@ const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
 
       if (analysisError) throw analysisError;
 
-      // Create food intake record
       const { data: foodIntake, error: insertError } = await supabase
         .from('food_intakes')
         .insert({
@@ -333,82 +412,92 @@ const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-t-3xl shadow-2xl w-full max-w-md animate-slide-up">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
+        <div className="p-6 flex flex-col space-y-4">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">Add Food Intake</h2>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <button onClick={() => {
+              NativeFeatures.vibrate(15);
+              onClose();
+            }} className="p-2 hover:bg-gray-100 rounded-full">
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Image (Optional)
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-emerald-400 transition-colors">
-                {image ? (
-                  <div className="relative">
-                    <img src={image} alt="Preview" className="w-full h-32 object-cover rounded-xl" />
-                    <button
-                      onClick={() => {
-                        setImage(null);
-                        setImageFile(null);
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="image-upload"
-                    />
-                    <label
-                      htmlFor="image-upload"
-                      className="text-emerald-600 font-medium cursor-pointer hover:text-emerald-700"
-                    >
-                      Click to upload image
-                    </label>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your meal..."
-                className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
-                rows="3"
-              />
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              disabled={(!description.trim() && !imageFile) || isProcessing}
-              className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-semibold py-3 px-6 rounded-2xl hover:from-emerald-600 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          {/* Upload area */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Image (Optional)
+            </label>
+            <label
+              htmlFor="image-upload"
+              className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-emerald-400 transition-colors cursor-pointer flex flex-col items-center justify-center"
             >
-              {isProcessing ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Processing...
+              {image ? (
+                <div className="relative w-full">
+                  <img
+                    src={image}
+                    alt="Preview"
+                    className="w-full h-40 object-cover rounded-xl"
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent triggering file picker
+                      NativeFeatures.vibrate(15);
+                      setImage(null);
+                      setImageFile(null);
+                    }}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
-                'Add Food Intake'
+                <>
+                  <Upload className="w-12 h-12 text-gray-400 mb-2" />
+                  <span className="text-emerald-600 font-medium hover:text-emerald-700">
+                    Click anywhere to upload image
+                  </span>
+                </>
               )}
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="image-upload"
+              />
+            </label>
           </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe your meal..."
+              className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+              rows="3"
+            />
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={(!description.trim() && !imageFile) || isProcessing}
+            className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-semibold py-3 px-6 rounded-2xl hover:from-emerald-600 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Processing...
+              </div>
+            ) : (
+              'Add Food Intake'
+            )}
+          </button>
         </div>
       </div>
     </div>
@@ -420,6 +509,7 @@ const SettingsScreen = ({ onDeleteAll, onLogout, currentUser }) => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleDeleteAll = async () => {
+    NativeFeatures.vibrate(15);
     try {
       // Get all food intakes to find associated images
       const { data: foodIntakes } = await supabase
@@ -647,7 +737,10 @@ const App = () => {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
         <div className="flex justify-around items-center h-16">
           <button
-            onClick={() => setActiveTab('home')}
+            onClick={() => {
+              NativeFeatures.vibrate(15);
+              setActiveTab('home');
+            }}
             className={`flex flex-col items-center ${activeTab === 'home' ? 'text-emerald-600' : 'text-gray-500'
               }`}
           >
@@ -656,14 +749,20 @@ const App = () => {
           </button>
 
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              NativeFeatures.vibrate(15);
+              setShowAddModal(true);
+            }}
             className="bg-gradient-to-r from-emerald-500 to-blue-600 text-white p-4 rounded-full shadow-lg -mt-12 hover:from-emerald-600 hover:to-blue-700 transition-all duration-300"
           >
             <Plus className="w-6 h-6" />
           </button>
 
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => {
+              NativeFeatures.vibrate(15);
+              setActiveTab('settings');
+            }}
             className={`flex flex-col items-center ${activeTab === 'settings' ? 'text-emerald-600' : 'text-gray-500'
               }`}
           >
@@ -684,7 +783,10 @@ const App = () => {
       {selectedFoodIntake && (
         <NutrientModal
           foodIntake={selectedFoodIntake}
-          onClose={() => setSelectedFoodIntake(null)}
+          onClose={() => {
+            NativeFeatures.vibrate(15);
+            setSelectedFoodIntake(null);
+          }}
         />
       )}
 
