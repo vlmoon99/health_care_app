@@ -1,9 +1,20 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { GoogleGenAI } from "npm:@google/genai";
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const ai = new GoogleGenAI({
   apiKey: Deno.env.get("GOOGLE_GEN_AI_API_KEY"),
 });
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+)
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 const NUTRIENTS_TEMPLATE = `
 You are a nutrition analyzer. Given a description of a food item, provide a structured JSON with the following fields:
@@ -75,26 +86,49 @@ async function executeWithGoogle(imageBase64: string | null, userPrompt: string)
   return extractJson(rawText);
 }
 
-Deno.serve(async (req) => {
-  try {
-    const { description, imageBase64 } = await req.json();
+const fetchImageAsBase64 = async (photoId) => {
+  if (!photoId) return null;
 
-    if (!description && !imageBase64) {
+  const { data, error } = await supabase.storage
+      .from('user_photos')
+      .download(photoId);
+
+  if (error) throw new Error(`Image fetch failed: ${error.message}`);
+
+  const arrayBuffer = await data.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
+  const base64 = btoa(String.fromCharCode(...uint8));
+  console.log(base64);
+  return base64;
+};
+
+
+Deno.serve(async (req) => {
+
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const { description, image_id } = await req.json();
+
+    if (!description && !image_id) {
       return new Response(
-        JSON.stringify({ error: "Missing description or imageBase64" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({ error: "Missing description or image_id" }),
+        { status: 400, headers: { ...corsHeaders , "Content-Type": "application/json" } },
       );
     }
 
-    const nutrients = await executeWithGoogle(imageBase64, `${NUTRIENTS_TEMPLATE}\nFood description: ${description}`);
+    const base64Photo = await fetchImageAsBase64(image_id);
+    const nutrients = await executeWithGoogle(base64Photo, `${NUTRIENTS_TEMPLATE}\nFood description: ${description}`);
 
     return new Response(JSON.stringify(nutrients), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders , "Content-Type": "application/json" },
     });
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders , "Content-Type": "application/json" } },
     );
   }
 });

@@ -1,48 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Plus, Home, Settings, Trash2, Upload, X } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
-// Mock data and utilities
-const mockNutrientData = {
-  calories: 245,
-  protein: 12.5,
-  carbs: 35.2,
-  fat: 8.1,
-  fiber: 4.2,
-  sugar: 18.5,
-  sodium: 156,
-  calcium: 89,
-  iron: 2.1,
-  vitaminC: 45.2,
-  vitaminA: 125,
-  potassium: 287
-};
+// Initialize Supabase client
+const supabaseUrl = 'https://nifdaoaxjihkwbgviwsa.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pZmRhb2F4amloa3diZ3Zpd3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyMDU0MDAsImV4cCI6MjA3Mzc4MTQwMH0.pPPgJ8L_dfouSLrajPg1gxq3d8XLVTrbBp91LxB9e1Q';
 
-const generateMockNutrients = () => ({
-  calories: Math.floor(Math.random() * 400) + 100,
-  protein: Math.round((Math.random() * 25 + 5) * 10) / 10,
-  carbs: Math.round((Math.random() * 50 + 10) * 10) / 10,
-  fat: Math.round((Math.random() * 20 + 2) * 10) / 10,
-  fiber: Math.round((Math.random() * 8 + 1) * 10) / 10,
-  sugar: Math.round((Math.random() * 30 + 5) * 10) / 10,
-  sodium: Math.floor(Math.random() * 300) + 50,
-  calcium: Math.floor(Math.random() * 200) + 50,
-  iron: Math.round((Math.random() * 5 + 0.5) * 10) / 10,
-  vitaminC: Math.round((Math.random() * 60 + 10) * 10) / 10,
-  vitaminA: Math.floor(Math.random() * 200) + 50,
-  potassium: Math.floor(Math.random() * 400) + 100
-});
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Authentication Component
+// ---------------- Login Screen ----------------
 const LoginScreen = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error) throw error;
+
+      setTimeout(() => {
+        setIsLoading(false);
+        onLogin(data.user);
+      }, 1000);
+    } catch (error) {
+      console.error('Login error:', error);
       setIsLoading(false);
-      onLogin();
-    }, 1500);
+      alert('Login failed. Please try again.');
+    }
   };
 
   return (
@@ -55,7 +39,7 @@ const LoginScreen = ({ onLogin }) => {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">NutriTracker</h1>
           <p className="text-gray-600">Track your nutrition with AI</p>
         </div>
-        
+
         <button
           onClick={handleLogin}
           disabled={isLoading}
@@ -70,27 +54,27 @@ const LoginScreen = ({ onLogin }) => {
             'Anonymous Login'
           )}
         </button>
-        
+
         <p className="text-xs text-gray-500 text-center mt-4">
-          No account needed. Your data is stored locally.
+          No account needed. Your data is stored securely.
         </p>
       </div>
     </div>
   );
 };
 
-// Food Intake Card Component
+// ---------------- Food Card ----------------
 const FoodIntakeCard = ({ foodIntake, onClick }) => {
   return (
-    <div 
+    <div
       onClick={onClick}
       className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-102 border border-gray-100"
     >
-      {foodIntake.image && (
+      {foodIntake.imageUrl && (
         <div className="h-48 bg-gray-100 rounded-t-2xl overflow-hidden">
-          <img 
-            src={foodIntake.image} 
-            alt="Food" 
+          <img
+            src={foodIntake.imageUrl}
+            alt="Food"
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
           />
         </div>
@@ -98,32 +82,33 @@ const FoodIntakeCard = ({ foodIntake, onClick }) => {
       <div className="p-4">
         <p className="text-gray-800 font-medium mb-2 line-clamp-2">{foodIntake.description}</p>
         <div className="flex items-center justify-between text-sm text-gray-500">
-          <span>{foodIntake.calories} kcal</span>
-          <span>{new Date(foodIntake.createdAt).toLocaleDateString()}</span>
+          <span>{foodIntake.nutrients?.calories || 0} kcal</span>
+          <span>{new Date(foodIntake.created_at).toLocaleDateString()}</span>
         </div>
       </div>
     </div>
   );
 };
 
-// Nutrient Detail Modal Component
+// ---------------- Nutrient Modal ----------------
 const NutrientModal = ({ foodIntake, onClose }) => {
   if (!foodIntake) return null;
 
-  const nutrients = [
-    { label: 'Calories', value: foodIntake.calories, unit: 'kcal', color: 'bg-red-100 text-red-800' },
-    { label: 'Protein', value: foodIntake.protein, unit: 'g', color: 'bg-blue-100 text-blue-800' },
-    { label: 'Carbohydrates', value: foodIntake.carbs, unit: 'g', color: 'bg-yellow-100 text-yellow-800' },
-    { label: 'Fat', value: foodIntake.fat, unit: 'g', color: 'bg-purple-100 text-purple-800' },
-    { label: 'Fiber', value: foodIntake.fiber, unit: 'g', color: 'bg-green-100 text-green-800' },
-    { label: 'Sugar', value: foodIntake.sugar, unit: 'g', color: 'bg-pink-100 text-pink-800' },
-    { label: 'Sodium', value: foodIntake.sodium, unit: 'mg', color: 'bg-orange-100 text-orange-800' },
-    { label: 'Calcium', value: foodIntake.calcium, unit: 'mg', color: 'bg-indigo-100 text-indigo-800' },
-    { label: 'Iron', value: foodIntake.iron, unit: 'mg', color: 'bg-gray-100 text-gray-800' },
-    { label: 'Vitamin C', value: foodIntake.vitaminC, unit: 'mg', color: 'bg-emerald-100 text-emerald-800' },
-    { label: 'Vitamin A', value: foodIntake.vitaminA, unit: 'IU', color: 'bg-amber-100 text-amber-800' },
-    { label: 'Potassium', value: foodIntake.potassium, unit: 'mg', color: 'bg-teal-100 text-teal-800' },
-  ];
+  const nutrients = foodIntake.nutrients || {};
+  const nutrientsList = [
+    { label: 'Calories', value: nutrients.calories, unit: 'kcal', color: 'bg-red-100 text-red-800' },
+    { label: 'Protein', value: nutrients.protein, unit: 'g', color: 'bg-blue-100 text-blue-800' },
+    { label: 'Carbohydrates', value: nutrients.carbs, unit: 'g', color: 'bg-yellow-100 text-yellow-800' },
+    { label: 'Fat', value: nutrients.fat, unit: 'g', color: 'bg-purple-100 text-purple-800' },
+    { label: 'Fiber', value: nutrients.fiber, unit: 'g', color: 'bg-green-100 text-green-800' },
+    { label: 'Sugar', value: nutrients.sugar, unit: 'g', color: 'bg-pink-100 text-pink-800' },
+    { label: 'Sodium', value: nutrients.sodium, unit: 'mg', color: 'bg-orange-100 text-orange-800' },
+    { label: 'Calcium', value: nutrients.calcium, unit: 'mg', color: 'bg-indigo-100 text-indigo-800' },
+    { label: 'Iron', value: nutrients.iron, unit: 'mg', color: 'bg-gray-100 text-gray-800' },
+    { label: 'Vitamin C', value: nutrients.vitaminC, unit: 'mg', color: 'bg-emerald-100 text-emerald-800' },
+    { label: 'Vitamin A', value: nutrients.vitaminA, unit: 'IU', color: 'bg-amber-100 text-amber-800' },
+    { label: 'Potassium', value: nutrients.potassium, unit: 'mg', color: 'bg-teal-100 text-teal-800' },
+  ].filter(n => n.value !== undefined && n.value !== null);
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -134,18 +119,22 @@ const NutrientModal = ({ foodIntake, onClose }) => {
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="p-4 overflow-y-auto max-h-[60vh]">
-          {foodIntake.image && (
+          {foodIntake.imageUrl && (
             <div className="mb-4 rounded-2xl overflow-hidden">
-              <img src={foodIntake.image} alt="Food" className="w-full h-32 object-cover" />
+              <img
+                src={foodIntake.imageUrl}
+                alt="Food"
+                className="w-full h-32 object-cover"
+              />
             </div>
           )}
-          
+
           <p className="text-gray-700 mb-6 font-medium">{foodIntake.description}</p>
-          
+
           <div className="grid grid-cols-1 gap-3">
-            {nutrients.map((nutrient) => (
+            {nutrientsList.map((nutrient) => (
               <div key={nutrient.label} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
                 <span className="font-medium text-gray-700">{nutrient.label}</span>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${nutrient.color}`}>
@@ -154,9 +143,9 @@ const NutrientModal = ({ foodIntake, onClose }) => {
               </div>
             ))}
           </div>
-          
+
           <div className="mt-4 text-xs text-gray-500 text-center">
-            Added on {new Date(foodIntake.createdAt).toLocaleString()}
+            Added on {new Date(foodIntake.created_at).toLocaleString()}
           </div>
         </div>
       </div>
@@ -164,15 +153,17 @@ const NutrientModal = ({ foodIntake, onClose }) => {
   );
 };
 
-// Add Food Intake Modal Component
-const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
+// ---------------- Add Food Modal ----------------
+const AddFoodModal = ({ isOpen, onClose, onAdd, currentUser }) => {
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => setImage(e.target.result);
       reader.readAsDataURL(file);
@@ -180,26 +171,60 @@ const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
   };
 
   const handleSubmit = async () => {
-    if (!description.trim() && !image) return;
-    
+    if (!description.trim() && !imageFile) return;
+
     setIsProcessing(true);
-    
-    // Simulate AI processing
-    setTimeout(() => {
-      const newFoodIntake = {
-        id: Date.now(),
-        description: description || 'Food item',
-        image: image,
-        createdAt: new Date().toISOString(),
-        ...generateMockNutrients()
-      };
-      
-      onAdd(newFoodIntake);
+
+    try {
+      let imageId = null;
+
+      // Upload image if provided
+      if (imageFile) {
+        const filePath = `${currentUser.id}/${Date.now()}-${imageFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('user_photos')
+          .upload(filePath, imageFile);
+
+        if (uploadError) throw uploadError;
+        imageId = uploadData.path;
+      }
+
+      // Analyze food using edge function
+      const { data: analysisData, error: analysisError } = await supabase.functions
+        .invoke('analyze_food', {
+          body: {
+            description: description || 'Food item',
+            image_id: imageId,
+          },
+        });
+
+      if (analysisError) throw analysisError;
+
+      // Create food intake record
+      const { data: foodIntake, error: insertError } = await supabase
+        .from('food_intakes')
+        .insert({
+          user_id: currentUser.id,
+          food_image_id: imageId,
+          description: description || 'Food item',
+          nutrients: analysisData,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      onAdd(foodIntake);
       setDescription('');
       setImage(null);
-      setIsProcessing(false);
+      setImageFile(null);
       onClose();
-    }, 2000);
+    } catch (error) {
+      console.error('Error adding food intake:', error);
+      alert('Failed to add food intake. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -214,7 +239,7 @@ const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
               <X className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -225,7 +250,10 @@ const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
                   <div className="relative">
                     <img src={image} alt="Preview" className="w-full h-32 object-cover rounded-xl" />
                     <button
-                      onClick={() => setImage(null)}
+                      onClick={() => {
+                        setImage(null);
+                        setImageFile(null);
+                      }}
                       className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                     >
                       <X className="w-4 h-4" />
@@ -251,7 +279,7 @@ const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
                 )}
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
@@ -264,10 +292,10 @@ const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
                 rows="3"
               />
             </div>
-            
+
             <button
               onClick={handleSubmit}
-              disabled={(!description.trim() && !image) || isProcessing}
+              disabled={(!description.trim() && !imageFile) || isProcessing}
               className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-semibold py-3 px-6 rounded-2xl hover:from-emerald-600 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
@@ -286,23 +314,39 @@ const AddFoodModal = ({ isOpen, onClose, onAdd }) => {
   );
 };
 
-// Settings Screen Component
-const SettingsScreen = ({ onDeleteAll, onLogout }) => {
+// ---------------- Settings Screen ----------------
+const SettingsScreen = ({ onDeleteAll, onLogout, currentUser }) => {
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleDeleteAll = () => {
-    onDeleteAll();
-    onLogout();
-    setShowConfirm(false);
+  const handleDeleteAll = async () => {
+    try {
+      // Delete all food intakes
+      const { error } = await supabase.from('food_intakes').delete().eq('user_id', currentUser.id);
+      if (error) throw error;
+
+      // Delete all images in user's folder
+      const { data: files, error: listError } = await supabase.storage.from('user_photos').list(currentUser.id);
+      if (!listError && files.length > 0) {
+        const fileNames = files.map((f) => `${currentUser.id}/${f.name}`);
+        await supabase.storage.from('user_photos').remove(fileNames);
+      }
+
+      onDeleteAll();
+      onLogout();
+      setShowConfirm(false);
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      alert('Failed to delete data. Please try again.');
+    }
   };
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Settings</h1>
-      
+
       <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Data Management</h2>
-        
+
         <button
           onClick={() => setShowConfirm(true)}
           className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-2xl transition-colors duration-300 flex items-center justify-center"
@@ -310,14 +354,14 @@ const SettingsScreen = ({ onDeleteAll, onLogout }) => {
           <Trash2 className="w-5 h-5 mr-2" />
           Delete All Data
         </button>
-        
+
         <p className="text-sm text-gray-500 mt-3 text-center">
           This will permanently delete all your food intake data and log you out.
         </p>
       </div>
 
       {showConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Confirm Delete</h3>
             <p className="text-gray-600 mb-6">
@@ -344,147 +388,116 @@ const SettingsScreen = ({ onDeleteAll, onLogout }) => {
   );
 };
 
-// Main App Component
+// ---------------- Main App ----------------
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
   const [foodIntakes, setFoodIntakes] = useState([]);
   const [selectedFoodIntake, setSelectedFoodIntake] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Initialize with some mock data
   useEffect(() => {
-    const mockData = [
-      {
-        id: 1,
-        description: 'Grilled chicken breast with quinoa and steamed broccoli',
-        image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        ...generateMockNutrients()
-      },
-      {
-        id: 2,
-        description: 'Greek yogurt with mixed berries and honey',
-        image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop',
-        createdAt: new Date(Date.now() - 43200000).toISOString(),
-        ...generateMockNutrients()
-      }
-    ];
-    setFoodIntakes(mockData);
-  }, []);
+    if (currentUser) {
+      fetchFoodIntakes();
+    }
+  }, [currentUser]);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
+  const fetchFoodIntakes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('food_intakes')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setActiveTab('home');
-    setSelectedFoodIntake(null);
-    setShowAddModal(false);
+      if (error) throw error;
+      setFoodIntakes(data || []);
+    } catch (error) {
+      console.error('Error fetching food intakes:', error);
+    }
   };
 
   const handleAddFoodIntake = (newFoodIntake) => {
-    setFoodIntakes(prev => [newFoodIntake, ...prev]);
+    setFoodIntakes([newFoodIntake, ...foodIntakes]);
   };
 
   const handleDeleteAll = () => {
     setFoodIntakes([]);
   };
 
-  // Login Screen
-  if (!isAuthenticated) {
-    return <LoginScreen onLogin={handleLogin} />;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+  };
+
+  if (!currentUser) {
+    return <LoginScreen onLogin={setCurrentUser} />;
   }
 
-  // Main App Screen
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-800">
-            {activeTab === 'home' ? 'My Food Intake' : 'Settings'}
-          </h1>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="pb-20">
-        {activeTab === 'home' ? (
-          <div className="p-6">
-            {foodIntakes.length === 0 ? (
-              <div className="text-center py-16">
-                <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-gray-600 mb-2">No food intake recorded</h2>
-                <p className="text-gray-500">Start by adding your first meal!</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {foodIntakes.map((foodIntake) => (
-                  <FoodIntakeCard
-                    key={foodIntake.id}
-                    foodIntake={foodIntake}
-                    onClick={() => setSelectedFoodIntake(foodIntake)}
-                  />
-                ))}
-              </div>
-            )}
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <main className="flex-grow p-4 pb-24">
+        {activeTab === 'home' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {foodIntakes.map((intake) => (
+              <FoodIntakeCard
+                key={intake.id}
+                foodIntake={intake}
+                onClick={() => setSelectedFoodIntake(intake)}
+              />
+            ))}
           </div>
-        ) : (
-          <SettingsScreen onDeleteAll={handleDeleteAll} onLogout={handleLogout} />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsScreen onDeleteAll={handleDeleteAll} onLogout={handleLogout} currentUser={currentUser} />
         )}
       </main>
 
-      {/* Floating Action Button */}
-      {activeTab === 'home' && (
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="fixed bottom-20 right-6 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 z-30"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-      )}
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
-        <div className="flex">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div className="flex justify-around items-center h-16">
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex-1 flex flex-col items-center py-3 px-4 ${
-              activeTab === 'home'
-                ? 'text-emerald-600 bg-emerald-50'
-                : 'text-gray-600 hover:text-gray-800'
+            className={`flex flex-col items-center ${
+              activeTab === 'home' ? 'text-emerald-600' : 'text-gray-500'
             }`}
           >
-            <Home className="w-6 h-6 mb-1" />
-            <span className="text-xs font-medium">Home</span>
+            <Home className="w-6 h-6" />
+            <span className="text-xs">Home</span>
           </button>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-gradient-to-r from-emerald-500 to-blue-600 text-white p-4 rounded-full shadow-lg -mt-12 hover:from-emerald-600 hover:to-blue-700 transition-all duration-300"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex-1 flex flex-col items-center py-3 px-4 ${
-              activeTab === 'settings'
-                ? 'text-emerald-600 bg-emerald-50'
-                : 'text-gray-600 hover:text-gray-800'
+            className={`flex flex-col items-center ${
+              activeTab === 'settings' ? 'text-emerald-600' : 'text-gray-500'
             }`}
           >
-            <Settings className="w-6 h-6 mb-1" />
-            <span className="text-xs font-medium">Settings</span>
+            <Settings className="w-6 h-6" />
+            <span className="text-xs">Settings</span>
           </button>
         </div>
-      </nav>
+      </div>
 
-      {/* Modals */}
-      <NutrientModal
-        foodIntake={selectedFoodIntake}
-        onClose={() => setSelectedFoodIntake(null)}
-      />
-
-      <AddFoodModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdd={handleAddFoodIntake}
-      />
+      {showAddModal && (
+        <AddFoodModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddFoodIntake}
+          currentUser={currentUser}
+        />
+      )}
+      {selectedFoodIntake && (
+        <NutrientModal
+          foodIntake={selectedFoodIntake}
+          onClose={() => setSelectedFoodIntake(null)}
+        />
+      )}
     </div>
   );
 };
