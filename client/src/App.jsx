@@ -24,27 +24,6 @@ const NativeFeatures = {
   canVibrate() {
     return "vibrate" in navigator;
   },
-
-  isOnline() {
-    return navigator.onLine;
-  },
-
-  onOnlineStatusChange(callback) {
-    window.addEventListener("online", () => callback(true));
-    window.addEventListener("offline", () => callback(false));
-  },
-
-  async copyToClipboard(text) {
-    if (!("clipboard" in navigator)) {
-      console.warn("Clipboard API not supported.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error("Failed to copy text:", err);
-    }
-  }
 };
 
 
