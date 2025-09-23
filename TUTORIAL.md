@@ -22,7 +22,7 @@ Our tutorial topic is **Food Analyzer App**.
 
 ---
 
-# 4. First Step (Domain Models & Use Cases)
+# 3. First Step (Domain Models & Use Cases)
 
 Creating Domain Models and Use Cases is the first step before making any application.
 It is important because here you define the main entities and logic of the app.
@@ -112,7 +112,7 @@ Our Food Analyzer App domain models:
 
 ---
 
-# 5. Second Step (SQL Scripts)
+# 4. Second Step (SQL Scripts)
 
 It is very important to have **two scripts**:
 
@@ -223,7 +223,7 @@ delete from storage.buckets where id = 'user_photos';
 drop extension if exists "uuid-ossp";
 ```
 
-# 6. Third Step (Create UI Mock Prototype)
+# 5. Third Step (Create UI Mock Prototype)
 
 Before we write any backend or integration between UI and backend, we first create the **UI mock**.
 
@@ -427,7 +427,7 @@ Create me the UI mock without any server calls, but with fully functional mocked
 
 ---
 
-# 7. Fourth Step (Create the Backend)
+# 6. Fourth Step (Create the Backend)
 
 In this tutorial, we will write the backend **fully using PostgreSQL and Supabase Edge Functions**.
 This approach is extremely powerful because it allows us to minimize or even completely eliminate traditional backend code and infrastructure.
@@ -547,7 +547,7 @@ You should follow a similar approach when creating your own functions.
 
 ---
 
-# 8. Fifth Step (Connect the Backend into UI)
+# 7. Fifth Step (Connect the Backend into UI)
 
 This step connects our **mocked UI** into the **backend**.
 We need to provide to the LLM all necessary files and context, so it understands how to integrate the UI with Supabase (PostgreSQL + Edge Functions).
@@ -587,7 +587,7 @@ Result must be one App.jsx file with all code inside it, following a modular app
 
 ---
 
-# 9. Sixth Step (Optimize App, Add Native Features, Add PWA)
+# 8. Sixth Step (Optimize App, Add Native Features, Add PWA)
 
 This step is optional.
 At this point, you already have a ready-to-use app that you can show to potential customers.
@@ -716,7 +716,7 @@ Docs: [https://ngrok.com/docs/getting-started/](https://ngrok.com/docs/getting-s
 
 ---
 
-# 10. Seventh Step (Deploy App)
+# 9. Seventh Step (Deploy App)
 
 This step makes your **frontend app public on the internet**.
 We’ll use **Vercel** because it’s free, simple, and works well with **Vite + React + Tailwind**.
@@ -741,7 +741,7 @@ We’ll use **Vercel** because it’s free, simple, and works well with **Vite +
 
 ---
 
-# 11. Eighth Step (Tell About This App to Friends and Potential Clients)
+# 10. Eighth Step (Tell About This App to Friends and Potential Clients)
 
 Now, when your app is **deployed**, it’s time to share it with the real world.
 
